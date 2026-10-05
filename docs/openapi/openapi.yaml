@@ -87,12 +87,13 @@ components:
     WebhookSubscription:
       type: object
       required:
-        - url
+        - callback_url
         - events
       properties:
-        url:
+        callback_url:
           type: string
           format: uri
+          description: Public HTTPS URL that receives Corg.ly events.
           example: https://example.com/webhooks/corgly
         events:
           type: array
@@ -380,13 +381,13 @@ paths:
             schema:
               $ref: '#/components/schemas/WebhookSubscription'
             example:
-              url: https://example.com/webhooks/corgly
+              callback_url: https://example.com/webhooks/corgly
               events:
                 - pet.updated
                 - bark.translated
 
       responses:
-        '200':
+        '201':
           description: Webhook subscription created successfully.
           content:
             application/json:
@@ -396,7 +397,7 @@ paths:
                   subscription_id:
                     type: string
                     example: sub_123456
-                  url:
+                  callback_url:
                     type: string
                     format: uri
                     example: https://example.com/webhooks/corgly

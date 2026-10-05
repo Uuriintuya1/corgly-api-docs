@@ -13,4 +13,4 @@ with open("bark_001.wav", "rb") as bark_audio:
         files={"audio": bark_audio},
     )
 
-print(bark_response.json()["meaning"])
+print(bark_response.status_code, bark_response.json()["translation"])
