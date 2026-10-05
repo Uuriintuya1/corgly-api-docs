@@ -1,0 +1,442 @@
+openapi: 3.0.3
+
+info:
+  title: Corg.ly API
+  version: 1.0.0
+  description: API for managing Corgi pet profiles, photos, bark translation, and webhooks.
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/mit
+
+servers:
+  - url: https://api.corg.ly/v1
+    description: Production server
+
+tags:
+  - name: Pets
+    description: Pet profile operations
+  - name: Audio
+    description: Bark translation operations
+  - name: Webhooks
+    description: Webhook subscription operations
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+
+    PetProfile:
+      type: object
+      required:
+        - id
+        - name
+        - breed
+        - age
+      properties:
+        id:
+          type: string
+          example: corgi_98231
+        name:
+          type: string
+          example: Einstein
+        breed:
+          type: string
+          example: Pembroke Welsh Corgi
+        age:
+          type: integer
+          minimum: 0
+          example: 4
+
+    PetPhoto:
+      type: object
+      required:
+        - pet_id
+        - photo_url
+      properties:
+        pet_id:
+          type: string
+          example: corgi_98231
+        photo_url:
+          type: string
+          format: uri
+          example: https://cdn.corg.ly/pets/einstein.jpg
+
+    BarkTranslation:
+      type: object
+      required:
+        - pet_id
+        - translation
+      properties:
+        pet_id:
+          type: string
+          example: corgi_98231
+        translation:
+          type: string
+          example: I want to go outside.
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          example: 0.94
+
+    WebhookSubscription:
+      type: object
+      required:
+        - url
+        - events
+      properties:
+        url:
+          type: string
+          format: uri
+          example: https://example.com/webhooks/corgly
+        events:
+          type: array
+          items:
+            type: string
+            enum:
+              - pet.updated
+              - pet.photo_uploaded
+              - bark.translated
+          example:
+            - pet.updated
+            - bark.translated
+
+security:
+  - BearerAuth: []
+
+paths:
+
+  /pets:
+    get:
+      operationId: getPets
+      summary: Get all pets
+      description: Returns a list of registered Corgi pet profiles.
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of pets to return.
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          example: 20
+
+      responses:
+        '200':
+          description: Successfully returned pet profiles.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PetProfile'
+              example:
+                - id: corgi_98231
+                  name: Einstein
+                  breed: Pembroke Welsh Corgi
+                  age: 4
+
+        '400':
+          description: Invalid query parameters.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Invalid limit value.
+
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Internal server error.
+
+  /pets/{pet_id}:
+    get:
+      operationId: getPetProfile
+      summary: Get a pet profile
+      description: Returns detailed information about a specific pet.
+      parameters:
+        - name: pet_id
+          in: path
+          required: true
+          description: Unique identifier of the pet.
+          schema:
+            type: string
+          example: corgi_98231
+
+      responses:
+        '200':
+          description: Pet profile found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PetProfile'
+              example:
+                id: corgi_98231
+                name: Einstein
+                breed: Pembroke Welsh Corgi
+                age: 4
+
+        '400':
+          description: Invalid pet ID.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Invalid pet ID.
+
+        '404':
+          description: Pet was not found.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Pet not found.
+
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Internal server error.
+
+  /pets/upload-photo:
+    post:
+      operationId: uploadPetPhoto
+      summary: Upload a pet photo
+      description: Uploads a photo for an existing pet.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - pet_id
+                - photo
+              properties:
+                pet_id:
+                  type: string
+                  description: Unique identifier of the pet.
+                  example: corgi_98231
+                photo:
+                  type: string
+                  format: binary
+                  description: Image file of the pet.
+            example:
+              pet_id: corgi_98231
+              photo: einstein.jpg
+
+      responses:
+        '200':
+          description: Photo uploaded successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PetPhoto'
+              example:
+                pet_id: corgi_98231
+                photo_url: https://cdn.corg.ly/pets/einstein.jpg
+
+        '400':
+          description: Invalid photo or pet ID.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Invalid image file.
+
+        '401':
+          description: Authentication failed.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Authentication required.
+
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Photo upload failed.
+
+  /audio/translate-bark:
+    post:
+      operationId: translateBark
+      summary: Translate a bark
+      description: Uploads an audio recording and translates the pet's bark.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - pet_id
+                - audio
+              properties:
+                pet_id:
+                  type: string
+                  description: Unique identifier of the pet.
+                  example: corgi_98231
+                audio:
+                  type: string
+                  format: binary
+                  description: Audio recording of the pet's bark.
+            example:
+              pet_id: corgi_98231
+              audio: einstein_bark.wav
+
+      responses:
+        '200':
+          description: Bark translated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BarkTranslation'
+              example:
+                pet_id: corgi_98231
+                translation: I want to go outside.
+                confidence: 0.94
+
+        '400':
+          description: Invalid audio file or pet ID.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Invalid audio file.
+
+        '401':
+          description: Authentication failed.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Authentication required.
+
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Bark translation failed.
+
+  /webhooks/subscribe:
+    post:
+      operationId: subscribeWebhook
+      summary: Subscribe to webhook events
+      description: Creates a webhook subscription for selected Corg.ly events.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookSubscription'
+            example:
+              url: https://example.com/webhooks/corgly
+              events:
+                - pet.updated
+                - bark.translated
+
+      responses:
+        '200':
+          description: Webhook subscription created successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  subscription_id:
+                    type: string
+                    example: sub_123456
+                  url:
+                    type: string
+                    format: uri
+                    example: https://example.com/webhooks/corgly
+                  events:
+                    type: array
+                    items:
+                      type: string
+                    example:
+                      - pet.updated
+                      - bark.translated
+
+        '400':
+          description: Invalid webhook configuration.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Invalid webhook URL.
+
+        '401':
+          description: Authentication failed.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Authentication required.
+
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Failed to create webhook subscription.
